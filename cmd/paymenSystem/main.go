@@ -5,8 +5,11 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"net/http"
 	"paymentSystem/internal/config"
+	"paymentSystem/internal/handlers"
 	logger2 "paymentSystem/internal/logger"
+	"paymentSystem/internal/services"
 	"paymentSystem/internal/storage/sqlite"
 )
 
@@ -15,8 +18,6 @@ func main() {
 	fmt.Println(cfg.HTTPServer)
 
 	logger := logger2.Init(cfg.Env)
-
-	logger.Warn(fmt.Sprintf("Config: %v", cfg))
 
 	db, err := sql.Open("sqlite3", cfg.StoragePath)
 	if err != nil {
@@ -29,11 +30,20 @@ func main() {
 		log.Fatal("Storage init failed: ", err)
 	}
 
-	err = storage.Transfer("eb16dae1-9c4d-40fa-bd14-d6bc11207a87", "0d439904-bb31-4d56-bbe0-5719f319248f", 0.002)
-	if err != nil {
-		fmt.Println(err)
-		return
+	service := services.NewTransactionService(storage, logger)
+
+	handler := handlers.NewHandler(service, logger)
+	router := handlers.NewRouter(handler)
+
+	srv := &http.Server{
+		Addr:        cfg.Address,
+		Handler:     router,
+		ReadTimeout: cfg.Timeout,
+		IdleTimeout: cfg.IdleTimeout,
 	}
 
-	fmt.Println("Hello World")
+	logger.Info("Server starting...")
+	if err := srv.ListenAndServe(); err != nil {
+		logger.Error("Server failed to start: ", err)
+	}
 }

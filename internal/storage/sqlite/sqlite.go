@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"log/slog"
 	"paymentSystem/internal/models"
 	"paymentSystem/internal/storage"
+	"strconv"
 	"time"
 )
 
@@ -71,7 +71,7 @@ func (s *Storage) seedWallets() error {
 	defer tx.Rollback()
 
 	for i := 1; i <= count; i++ {
-		address := uuid.NewString()
+		address := "wallet-" + strconv.Itoa(i)
 		_, err = tx.Exec("INSERT INTO wallets (address, balance) VALUES (?, ?)", address, 100)
 		if err != nil {
 			return fmt.Errorf("failet to insert wallet %d: %v", i, err)
@@ -82,13 +82,6 @@ func (s *Storage) seedWallets() error {
 }
 
 func (s *Storage) Transfer(from, to string, amount float64) error {
-	if amount <= 0 {
-		return storage.ErrIncorrectAmount
-	}
-	if from == to {
-		return errors.New("cannot transfer to yourself")
-	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return fmt.Errorf("failet to begin transaction: %v", err)
@@ -100,29 +93,29 @@ func (s *Storage) Transfer(from, to string, amount float64) error {
 	err = tx.QueryRow("SELECT balance FROM wallets WHERE address = ?", from).Scan(&balance)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("sender not found")
+			return storage.ErrWalletNotFound
 		}
 		return err
 	}
 	if balance < amount {
-		return storage.ErrInsufficientMoney
+		return storage.ErrInsufficientFunds
 	}
 	var toExists bool
 	err = tx.QueryRow("Select 1 FROM wallets WHERE address = ?", to).Scan(&toExists)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("receiver not found")
+			return storage.ErrWalletNotFound
 		}
 		return err
 	}
 	//^ПРОВЕРКА КОШЕЛЬКОВ
 
-	_, err = tx.Exec("UPDATE wallets SET balance = balance + ? WHERE address = ?", amount, to)
+	_, err = tx.Exec("UPDATE wallets SET balance = balance - ? WHERE address = ?", amount, from)
 	if err != nil {
 		return err
 	}
 
-	_, err = tx.Exec("UPDATE wallets SET balance = balance - ? WHERE address = ?", amount, from)
+	_, err = tx.Exec("UPDATE wallets SET balance = balance + ? WHERE address = ?", amount, to)
 	if err != nil {
 		return err
 	}

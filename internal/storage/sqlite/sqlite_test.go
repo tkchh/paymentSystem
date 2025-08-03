@@ -46,20 +46,20 @@ func TestStorageSuite(t *testing.T) {
 
 func (s *StorageTestSuite) TestTransfer_Successful() {
 	// Arrange
-	s.createTestWallet("wallet-1", 100.0)
-	s.createTestWallet("wallet-2", 100.0)
+	s.createTestWallet("wallet-52", 100.0)
+	s.createTestWallet("wallet-53", 100.0)
 
 	// Act
-	err := s.storage.Transfer("wallet-1", "wallet-2", 50.0)
+	err := s.storage.Transfer("wallet-52", "wallet-53", 50.0)
 
 	// Assert
 	assert.NoError(s.T(), err)
 
-	balance1, err := s.storage.GetBalance("wallet-1")
+	balance1, err := s.storage.GetBalance("wallet-52")
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), 50.0, balance1)
 
-	balance2, err := s.storage.GetBalance("wallet-2")
+	balance2, err := s.storage.GetBalance("wallet-53")
 	assert.NoError(s.T(), err)
 	assert.Equal(s.T(), 150.0, balance2)
 
@@ -69,8 +69,8 @@ func (s *StorageTestSuite) TestTransfer_Successful() {
 	require.Len(s.T(), transactions, 1)
 
 	tx := transactions[0]
-	assert.Equal(s.T(), "wallet-1", tx.From)
-	assert.Equal(s.T(), "wallet-2", tx.To)
+	assert.Equal(s.T(), "wallet-52", tx.From)
+	assert.Equal(s.T(), "wallet-53", tx.To)
 	assert.Equal(s.T(), 50.0, tx.Amount)
 }
 
@@ -84,7 +84,7 @@ func (s *StorageTestSuite) TestTransfer_InsufficientMoney() {
 
 	// Assert
 	assert.Error(s.T(), err)
-	assert.Contains(s.T(), err.Error(), "insufficient money")
+	assert.Contains(s.T(), err.Error(), "insufficient funds")
 
 	// Проверяем, что балансы не изменились
 	senderBalance, _ := s.storage.GetBalance("sender")
@@ -98,41 +98,14 @@ func (s *StorageTestSuite) TestTransfer_InsufficientMoney() {
 	assert.Empty(s.T(), transactions)
 }
 
-func (s *StorageTestSuite) TestTransfer_InvalidAmount() {
-	testCases := []struct {
-		name   string
-		amount float64
-	}{
-		{"Negative amount", -10.0},
-		{"Zero amount", 0.0},
-	}
-
-	for _, tc := range testCases {
-		s.T().Run(tc.name, func(t *testing.T) {
-			// Arrange
-			s.createTestWallet("wallet-1"+tc.name, 100.0)
-			s.createTestWallet("wallet-2"+tc.name, 100.0)
-
-			// Act
-			err := s.storage.Transfer("wallet-1", "wallet-2", tc.amount)
-			//time.Sleep(1 * time.Second)
-
-			// Assert
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "invalid amount")
-		})
-	}
-}
-
 func (s *StorageTestSuite) TestTransfer_NonexistentWallets() {
 	testCases := []struct {
-		name     string
-		from     string
-		to       string
-		errorMsg string
+		name string
+		from string
+		to   string
 	}{
-		{"Nonexistent sender", "invalid-sender", "valid-receiver", "sender not found"},
-		{"Nonexistent receiver", "valid-sender", "invalid-receiver", "receiver not found"},
+		{"Nonexistent sender", "invalid-sender", "valid-receiver"},
+		{"Nonexistent receiver", "valid-sender", "invalid-receiver"},
 	}
 
 	for _, tc := range testCases {
@@ -150,24 +123,9 @@ func (s *StorageTestSuite) TestTransfer_NonexistentWallets() {
 
 			// Assert
 			assert.Error(t, err)
-			assert.Contains(t, err.Error(), tc.errorMsg)
+			assert.Contains(t, err.Error(), "wallet not found")
 		})
 	}
-}
-
-func (s *StorageTestSuite) TestTransfer_SameWallet() {
-	// Arrange
-	s.createTestWallet("same-wallet", 100.0)
-
-	// Act
-	err := s.storage.Transfer("same-wallet", "same-wallet", 50.0)
-
-	// Assert
-	assert.Error(s.T(), err)
-	assert.Contains(s.T(), err.Error(), "cannot transfer to yourself")
-
-	balance, _ := s.storage.GetBalance("same-wallet")
-	assert.Equal(s.T(), 100.0, balance)
 }
 
 func (s *StorageTestSuite) TestGetBalance_WalletNotFound() {
@@ -182,16 +140,16 @@ func (s *StorageTestSuite) TestGetBalance_WalletNotFound() {
 
 func (s *StorageTestSuite) TestGetLastNTransactions() {
 	// Arrange
-	s.createTestWallet("wallet-1", 100.0)
-	s.createTestWallet("wallet-2", 100.0)
-	s.createTestWallet("wallet-3", 100.0)
+	s.createTestWallet("wallet-a", 100.0)
+	s.createTestWallet("wallet-b", 100.0)
+	s.createTestWallet("wallet-c", 100.0)
 
 	// Выполняем несколько транзакций с задержкой для разных timestamp
-	s.Require().NoError(s.storage.Transfer("wallet-1", "wallet-2", 10.0))
+	s.Require().NoError(s.storage.Transfer("wallet-a", "wallet-b", 10.0))
 	time.Sleep(10 * time.Millisecond)
-	s.Require().NoError(s.storage.Transfer("wallet-2", "wallet-3", 20.0))
+	s.Require().NoError(s.storage.Transfer("wallet-b", "wallet-c", 20.0))
 	time.Sleep(10 * time.Millisecond)
-	s.Require().NoError(s.storage.Transfer("wallet-3", "wallet-1", 5.0))
+	s.Require().NoError(s.storage.Transfer("wallet-c", "wallet-a", 5.0))
 
 	// Act
 	transactions, err := s.storage.GetLastNTransactions(2)
@@ -201,20 +159,20 @@ func (s *StorageTestSuite) TestGetLastNTransactions() {
 	require.Len(s.T(), transactions, 2)
 
 	// Проверяем порядок (последние транзакции должны быть первыми)
-	assert.Equal(s.T(), "wallet-3", transactions[0].From)
-	assert.Equal(s.T(), "wallet-1", transactions[0].To)
+	assert.Equal(s.T(), "wallet-c", transactions[0].From)
+	assert.Equal(s.T(), "wallet-a", transactions[0].To)
 	assert.Equal(s.T(), 5.0, transactions[0].Amount)
 
-	assert.Equal(s.T(), "wallet-2", transactions[1].From)
-	assert.Equal(s.T(), "wallet-3", transactions[1].To)
+	assert.Equal(s.T(), "wallet-b", transactions[1].From)
+	assert.Equal(s.T(), "wallet-c", transactions[1].To)
 	assert.Equal(s.T(), 20.0, transactions[1].Amount)
 }
 
 func (s *StorageTestSuite) TestGetLastNTransactions_MoreThanExist() {
 	// Arrange
-	s.createTestWallet("wallet-1", 100.0)
-	s.createTestWallet("wallet-2", 100.0)
-	s.Require().NoError(s.storage.Transfer("wallet-1", "wallet-2", 10.0))
+	s.createTestWallet("wallet-a", 100.0)
+	s.createTestWallet("wallet-b", 100.0)
+	s.Require().NoError(s.storage.Transfer("wallet-a", "wallet-b", 10.0))
 
 	// Act
 	transactions, err := s.storage.GetLastNTransactions(10)

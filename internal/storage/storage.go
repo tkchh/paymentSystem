@@ -5,10 +5,11 @@ import (
 	"paymentSystem/internal/models"
 )
 
+// Файл возможно избыточен для такого проекта,
+// но в случае добавления новой DB легко масштабировать
 var (
 	ErrWalletNotFound    = errors.New("wallet not found")
-	ErrInsufficientMoney = errors.New("insufficient money")
-	ErrIncorrectAmount   = errors.New("invalid amount")
+	ErrInsufficientFunds = errors.New("insufficient funds")
 )
 
 type Storage interface {
