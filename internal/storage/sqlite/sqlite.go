@@ -1,3 +1,11 @@
+// Пакет sqlite содержит реализацию интерфейса storage.Storage для SQLite
+// Реализует:
+// - Инициализацию базы данных и создание таблиц
+// - Сидирование тестовых кошельков при первом запуске
+// - Операции с кошельками и транзакциями
+//
+// Использует транзакции для обеспечения целостности данных,
+// особенно при выполнении денежных переводов.
 package sqlite
 
 import (
@@ -21,6 +29,7 @@ func NewStorage(db *sql.DB, logger *slog.Logger) *Storage {
 	return &Storage{db: db, logger: logger}
 }
 
+// Init инициализирует базу данных при первом запуске.
 func (s *Storage) Init() error {
 	if _, err := s.db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		return fmt.Errorf("PRAGMA foreign_keys = ON: %v", err)
@@ -32,6 +41,7 @@ func (s *Storage) Init() error {
 	return s.seedWallets()
 }
 
+// createTables создает необходимые таблицы в базе данных.
 func (s *Storage) createTables() error {
 	_, err := s.db.Exec(`
 		CREATE TABLE IF NOT EXISTS wallets (
@@ -52,6 +62,7 @@ func (s *Storage) createTables() error {
 	return err
 }
 
+// seedWallets добавляет тестовые кошельки при первом запуске.
 func (s *Storage) seedWallets() error {
 	const count = 10
 	var existing int
@@ -81,6 +92,7 @@ func (s *Storage) seedWallets() error {
 	return tx.Commit()
 }
 
+// Transfer выполняет денежный перевод между кошельками.
 func (s *Storage) Transfer(from, to string, amount float64) error {
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -125,6 +137,7 @@ func (s *Storage) Transfer(from, to string, amount float64) error {
 	return tx.Commit()
 }
 
+// GetBalance возвращает текущий баланс кошелька.
 func (s *Storage) GetBalance(address string) (float64, error) {
 	var balance float64
 	err := s.db.QueryRow("SELECT balance FROM wallets WHERE address = ?", address).Scan(&balance)
@@ -134,6 +147,7 @@ func (s *Storage) GetBalance(address string) (float64, error) {
 	return balance, err
 }
 
+// GetLastNTransactions возвращает последние N транзакций.
 func (s *Storage) GetLastNTransactions(n int) ([]models.Transaction, error) {
 	var transactions []models.Transaction
 	rows, err := s.db.Query(`

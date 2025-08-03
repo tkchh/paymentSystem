@@ -1,3 +1,10 @@
+// Пакет services содержит бизнес-логику платежной системы.
+//
+// Реализует сервисный слой, который:
+// - Валидирует входные данные
+// - Обрабатывает бизнес-правила
+// - Логирует ключевые операции
+// - Преобразует ошибки хранилища в понятные бизнес-ошибки
 package services
 
 import (
@@ -7,9 +14,15 @@ import (
 	"paymentSystem/internal/storage"
 )
 
+// Ошибки, возникающие на уровне сервиса
 var (
+	// ErrInvalidAmount возвращается при попытке перевода неположительной суммы
 	ErrInvalidAmount = errors.New("amount must be positive")
-	ErrSelfTransfer  = errors.New("cannot send money to yourself")
+
+	// ErrSelfTransfer возвращается при попытке перевода самому себе
+	ErrSelfTransfer = errors.New("cannot send money to yourself")
+
+	// ErrInternalError возвращается при неожиданных ошибках
 	ErrInternalError = errors.New("internal error")
 )
 
@@ -31,6 +44,7 @@ func NewTransactionService(storage storage.Storage, logger *slog.Logger) Transac
 	}
 }
 
+// MakeTransaction реализует метод интерфейса для выполнения перевода.
 func (s *transactionService) MakeTransaction(from, to string, amount float64) error {
 	if amount <= 0 {
 		s.logger.Warn("invalid amount", "amount", amount)
@@ -60,6 +74,7 @@ func (s *transactionService) MakeTransaction(from, to string, amount float64) er
 	return nil
 }
 
+// GetBalance реализует метод интерфейса для получения баланса.
 func (s *transactionService) GetBalance(address string) (float64, error) {
 	s.logger.Info("get balance",
 		"address", address,
@@ -79,6 +94,7 @@ func (s *transactionService) GetBalance(address string) (float64, error) {
 	return balance, nil
 }
 
+// GetRecentTransactions реализует метод интерфейса для получения транзакций.
 func (s *transactionService) GetRecentTransactions(n int) ([]models.Transaction, error) {
 	if n <= 0 {
 		s.logger.Warn("invalid amount", "amount", n)
@@ -102,6 +118,7 @@ func (s *transactionService) GetRecentTransactions(n int) ([]models.Transaction,
 	return transactions, nil
 }
 
+// handleStorageError преобразует ошибки хранилища в бизнес-ошибки.
 func (s *transactionService) handleStorageError(err error, amount float64) error {
 	switch {
 	case errors.Is(err, storage.ErrInsufficientFunds):

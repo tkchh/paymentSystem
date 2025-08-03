@@ -1,3 +1,4 @@
+// Пакет models содержит структуры данных приложения
 package models
 
 type Wallet struct {

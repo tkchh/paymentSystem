@@ -1,3 +1,8 @@
+// Пакет handlers содержит HTTP-обработчики
+//
+// - Выполнение переводов
+// - Просмотр баланса
+// - Получение истории переводов
 package handlers
 
 import (
@@ -23,6 +28,7 @@ func NewHandler(service services.TransactionService, logger *slog.Logger) *Handl
 	}
 }
 
+// respondJSON формирует JSON-ответ с указанным статусом.
 func (h *Handler) respondJSON(w http.ResponseWriter, status int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -31,10 +37,12 @@ func (h *Handler) respondJSON(w http.ResponseWriter, status int, payload interfa
 	}
 }
 
+// respondError формирует стандартный ответ об ошибке.
 func (h *Handler) respondError(w http.ResponseWriter, status int, message string) {
 	h.respondJSON(w, status, map[string]string{"error": message})
 }
 
+// HandleSend обрабатывает запрос на выполнение денежного перевода.
 func (h *Handler) HandleSend(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		From   string  `json:"from"`
@@ -55,6 +63,7 @@ func (h *Handler) HandleSend(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]string{"status": "success"})
 }
 
+// HandleGetBalance обрабатывает запрос на получение баланса кошелька.
 func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 	address := chi.URLParam(r, "address")
 	if address == "" {
@@ -71,6 +80,7 @@ func (h *Handler) HandleGetBalance(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]float64{"balance": balance})
 }
 
+// HandleGetLastTransactions обрабатывает запрос на получение последних транзакций.
 func (h *Handler) HandleGetLastTransactions(w http.ResponseWriter, r *http.Request) {
 	count := 0
 	n := r.URL.Query().Get("count")
@@ -90,6 +100,7 @@ func (h *Handler) HandleGetLastTransactions(w http.ResponseWriter, r *http.Reque
 	h.respondJSON(w, http.StatusOK, transactions)
 }
 
+// handleError обрабатывает ошибки от сервисного слоя.
 func (h *Handler) handleError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, services.ErrInvalidAmount),
@@ -107,3 +118,16 @@ func (h *Handler) handleError(w http.ResponseWriter, err error) {
 		h.respondError(w, http.StatusInternalServerError, "internal error")
 	}
 }
+
+// Правила преобразования:
+// - Ошибки валидации → 400 Bad Request
+// - Кошелек не найден → 404 Not Found
+// - Недостаточно средств → 402 Payment Required
+// - Все остальные ошибки → 500 Internal Server Error
+
+// Формат запроса:
+// {
+//   "from": "адрес_отправителя",
+//   "to": "адрес_получателя",
+//   "amount": число
+// }

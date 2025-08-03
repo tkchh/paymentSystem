@@ -1,3 +1,7 @@
+// Пакет handlers содержит middleware для обработки запросов
+//
+// - Логирование всех запросов с метриками
+// - Восстановление после паник (recovery)
 package handlers
 
 import (
@@ -7,6 +11,7 @@ import (
 	"time"
 )
 
+// LoggingMiddleware логирует информацию о каждом HTTP-запросе.
 func (h *Handler) LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ww, ok := w.(middleware.WrapResponseWriter)
@@ -28,6 +33,7 @@ func (h *Handler) LoggingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// RecoverMiddleware перехватывает паники во время обработки запросов.
 func (h *Handler) RecoverMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
